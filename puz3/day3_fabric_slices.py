@@ -1,14 +1,11 @@
 import re
 from typing import List
-from itertools import product
+from itertools import product, filterfalse
 from collections import Counter
+from functools import partial
 
-with open('./data.txt','r') as infile:
-    lines = infile.read().splitlines()
-
-
-#1045 @ 558,269: 18x29
-
+# Pattern:
+# 1045 @ 558,269: 18x29
 CLAIM_REGEX = re.compile("#([0-9]+) @ ([0-9]+),([0-9]+): ([0-9]+)x([0-9]+)")
 
 def parse_claim(claim_string: str) -> dict:
@@ -47,14 +44,12 @@ TEST_OVERLAPPED_SQS = [
     (5, 5)
 ]
 
+### TEST CLAIM PARSING ###
 test_parsed_claims = [parse_claim(x) for x in TEST_CLAIM_STRINGS]
-# print(*test_parsed_claims, sep='\n')
-
-
 for claim, answer in zip(test_parsed_claims, TEST_CLAIM_IDS):
     for key in claim:
         assert claim[key] == answer[key]
-
+##########################
 
 class Claim(object):
 
@@ -80,22 +75,17 @@ class Claim(object):
 
         return self.coordinates
 
-def test_claim_class(claim_strings):
 
-    list_rectangles = [Claim(claim_string) for claim_string in claim_strings]
+def test_claim_class():
+
+    list_rectangles = [Claim(claim_string) for claim_string in TEST_CLAIM_STRINGS]
 
     for l_r, c_s in zip(list_rectangles, claim_strings):
         assert str(l_r) == c_s
 
     return
 
-try:
-    test_claim_class(TEST_CLAIM_STRINGS)
-    print("Claim() tests pass.")
-except AssertionError:
-    print("error")
-
-def calculate_overlaps(claims: List[Claim]) -> dict:
+def calculate_coord_counts(claims: List[Claim]) -> dict:
 
     squares_claimed = Counter()
 
@@ -105,33 +95,44 @@ def calculate_overlaps(claims: List[Claim]) -> dict:
 
     return squares_claimed
 
-def test_overlaps():
-
-    list_claims = [Claim(claim_string) for claim_string in TEST_CLAIM_STRINGS]
-
-    sq_claim_counts = calculate_overlaps(list_claims)
+def overlapping_squares(square_claim_clounts: dict) -> list:
+    """filter Counter to only overlapping coord keys"""
 
     # overlapped squares are key with a count > 1
-    ov_squares = list(filter(lambda x: sq_claim_counts[x] > 1, sq_claim_counts.keys()))
+    ov_squares = list(filter(lambda x: square_claim_clounts[x] > 1, square_claim_clounts.keys()))
+
+    return ov_squares
+
+def claim_disputed(claim: Claim, coordinate_counts: Counter) -> bool:
+
+    ### for one claim, cycle through all of its coordinates
+    ### lookup in coordinate counter
+    ### if > 1, return False
+
+    has_dispute = any([coordinate_counts[coordinate] for coordinate in claim.coordinates if coordinate_counts[coordinate] > 1])
+
+    return has_dispute
 
 
-    assert set(ov_squares) == set(TEST_OVERLAPPED_SQS)
-
-    return
-
-test_overlaps()
-
-
-list_claims = [Claim(claim_string) for claim_string in lines]
-sq_claim_counts = calculate_overlaps(list_claims)
-
-ov_squares = list(filter(lambda x: sq_claim_counts[x] > 1, sq_claim_counts.keys()))
-
-answer1 = len(ov_squares)
-print(answer1)
-
-
+if __name__ == "__main__":
     
+    with open('./data.txt','r') as infile:
+        lines = infile.read().splitlines()
+    
+    claims = [Claim(claim_string) for claim_string in lines]
+
+    coordinate_counts = calculate_coord_counts(claims)
+    disputed_squares = overlapping_squares(coordinate_counts)
+    
+    answer1 = len(disputed_squares)
+    print(answer1)
+
+    puz3 = partial(claim_disputed, coordinate_counts=coordinate_counts)
+
+    undisputed_claims = filterfalse(puz3, claims)
+
+    for c in undisputed_claims:
+        print(c)
 
 
-
+    pass
